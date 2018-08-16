@@ -1,0 +1,31 @@
+
+FROM oraclelinux:6.8
+ENV container docker
+MAINTAINER Priyadarshee Kumar "kumar.allcloud@gmail.com"
+
+RUN yum -y install openssh-server mysql-server \
+                      python-setuptools supervisor \
+                      httpd
+RUN easy_install pip
+RUN easy_install --upgrade pip
+RUN pip install meld3==1.0.1  #TO avoid issue of pkg_resources.DistributionNotFound: meld3>=0.6.5
+RUN pip install supervisor
+
+RUN mkdir -p /var/log/supervisor && \
+    mkdir -p /etc/supervisor/conf.d
+
+RUN /sbin/service mysqld start && \
+    mysqladmin -u root password ''
+
+RUN echo 'root:password' | chpasswd
+
+
+RUN sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+
+RUN sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd
+RUN echo 'Ciphers aes128-ctr,aes192-ctr,aes256-ctr,arcfour256,arcfour128,aes128-cbc,3des-cbc' >> /etc/ssh/ssh_config
+RUN service sshd restart # TO avoid issue of Read from socket failed: Connection reset by peer while connecting from outside
+
+COPY supervisor.conf /etc/supervisor.conf
+
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor.conf"]
